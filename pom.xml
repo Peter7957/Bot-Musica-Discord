@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>4.0.3</version>
+		<relativePath/> <!-- lookup parent from repository -->
+	</parent>
+	<groupId>com.Pixu</groupId>
+	<artifactId>DJ</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name>DJ</name>
+	<description>Demo project for Spring Boot</description>
+	<url/>
+	<licenses>
+		<license/>
+	</licenses>
+	<developers>
+		<developer/>
+	</developers>
+	<scm>
+		<connection/>
+		<developerConnection/>
+		<tag/>
+		<url/>
+	</scm>
+
+	<properties>
+		<java.version>25</java.version>
+	</properties>
+
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-devtools</artifactId>
+			<scope>runtime</scope>
+			<optional>true</optional>
+		</dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-h2console</artifactId>
+    </dependency>
+		<dependency>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<optional>true</optional>
+		</dependency>
+
+
+      <!-- Dependencias para el bot de música (JDA, Lavaplayer, etc.) -->
+
+
+    <dependency>
+      <groupId>net.dv8tion</groupId>
+      <artifactId>JDA</artifactId>
+      <version>6.3.0</version> 
+    </dependency>
+      <!-- Conector de YouTube (Necesario para que reconozca los links) -->
+    <dependency>
+      <groupId>dev.lavalink.youtube</groupId>
+      <artifactId>common</artifactId>
+      <version>1.17.0</version> 
+    </dependency>
+       <!-- Lavaplayer (El motor de audio moderno) -->
+    <dependency>
+        <groupId>dev.arbjerg</groupId>
+        <artifactId>lavaplayer</artifactId>
+        <version>2.2.6</version>
+    </dependency>
+    <dependency>
+        <groupId>club.minnced</groupId>
+        <artifactId>opus-java-api</artifactId>
+        <version>1.1.1</version>
+    </dependency>
+    <dependency>
+        <groupId>club.minnced</groupId>
+        <artifactId>opus-java-natives</artifactId>
+        <version>1.1.1</version>
+    </dependency>
+    <dependency>
+        <groupId>club.minnced</groupId>
+        <artifactId>jdave-api</artifactId>
+        <version>0.1.7</version>
+    </dependency>
+    <dependency>
+        <groupId>club.minnced</groupId>
+        <artifactId>jdave-native-linux-x86-64</artifactId>
+        <version>0.1.7</version>
+    </dependency>
+	</dependencies>
+
+  <repositories>
+    <repository>
+        <id>arbjerg-releases</id>
+        <name>Arbjerg Releases</name>
+      <url>https://maven.lavalink.dev/releases</url>
+    </repository>
+  </repositories>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+				<configuration>
+          <source>25</source>
+					<annotationProcessorPaths>
+						<path>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+              <version>1.18.40</version>
+						</path>
+					</annotationProcessorPaths>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>
