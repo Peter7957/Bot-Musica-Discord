@@ -91,6 +91,38 @@ public class SlashCommandListener extends ListenerAdapter {
       }
     }
 
+    if (event.getName().equals("mix")) {
+
+      String mixName = "History";
+
+      // Conectar al canal de voz si no está
+      event.getGuild().getAudioManager().openAudioConnection(
+          event.getMember().getVoiceState().getChannel());
+
+      // GUARDAR EL CANAL: Aquí le decimos al scheduler dónde hablar
+      musicManager.scheduler.setAnnouncementChannel(event.getChannel());
+
+      // LLAMADA AL SERVICE: El Service hace la magia de H2 -> Player
+      musicService.getMixTracks(mixName, event.getGuild().getIdLong(), musicManager);
+
+      event.reply("📂 Cargando tu mix personalizado: **" + mixName + "**").queue();
+    }
+
+    if (event.getName().equals("borrar")) {
+      AudioTrack track = musicManager.player.getPlayingTrack();
+
+      if (track != null) {
+        String identifier = track.getIdentifier();
+        Long guildId = event.getGuild().getIdLong();
+
+        musicService.deleteFromMix(identifier, guildId);
+        event.reply("🗑️ Canción actual eliminada de la base de datos.").queue();
+      } else {
+        event.reply("❌ No hay una canción sonando para borrar.").queue();
+      }
+
+    }
+
     // filatramos por el nomber del comando
 
     if (event.getName().equals("ping")) {
