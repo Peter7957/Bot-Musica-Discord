@@ -36,3 +36,6 @@ build/
 .envrc
 .direnv/
 data/
+
+## Ignora Rest para peticioes HTTP
+src/main/resources/*.http
