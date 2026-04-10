@@ -10,6 +10,7 @@ import club.minnced.discord.jdave.interop.JDaveSessionFactory;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.audio.AudioModuleConfig;
+import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.MemberCachePolicy;
@@ -47,7 +48,7 @@ public class DiscordConfig {
 
     jda.awaitReady();
 
-    var guild = jda.getGuildById(guildIdTest);
+    Guild guild = jda.getGuildById(guildIdTest);
     if (guild != null) {
       guild.upsertCommand("ping", "Calcula la latencia").queue();
       guild.upsertCommand("play", "Reproduce una canción")
