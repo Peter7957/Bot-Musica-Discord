@@ -1,13 +1,16 @@
 package com.Pixu.DJ.service;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import com.Pixu.DJ.exception.NoGuildChannelException;
+import com.Pixu.DJ.exception.NoVoiceChannelException;
 import com.Pixu.DJ.models.TrackEntity;
 import com.Pixu.DJ.music.GuildMusicManager;
 import com.Pixu.DJ.repository.TrackRepository;
@@ -18,11 +21,13 @@ import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 
 import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 
+@Slf4j
 @Service
 public class MusicService {
 
@@ -57,7 +62,7 @@ public class MusicService {
           .build();
 
       trackRepository.save(trackEntity);
-      System.out.println("💾 [Service] Guardada en H2: " + trackEntity.getTitle());
+      log.info("💾 [Service] Guardada en H2: {}", trackEntity.getTitle());
     }
   }
 
@@ -69,20 +74,30 @@ public class MusicService {
 
     List<TrackEntity> tracks = trackRepository.findByMixNameAndGuildId(mixName, guildId);
     Guild guild = jda.getGuildById(guildId);
-    if (guild == null) {
-      ResponseEntity.badRequest().body("Servidor no encontrado");
-      return;
+    AudioChannel voiceChannel;
+
+    if (guild.getVoiceChannels().isEmpty()) {
+      throw new NoVoiceChannelException("No hay canales de voz disponibles en este servidor.");
     }
 
-    AudioChannel voiceChannel = (targetVoiceChannel != null) ? targetVoiceChannel : guild.getVoiceChannels().get(0);
+    voiceChannel = (targetVoiceChannel != null) ? targetVoiceChannel : guild.getVoiceChannels().get(0);
 
-    GuildMusicManager musicManager = musicStateService.GetGuildMusicManager(guildId);
+    GuildMusicManager musicManager = musicStateService.GetGuildMusicManager(
+        guildId);
     guild.getAudioManager().setSendingHandler(musicManager.getSendHandler());
     guild.getAudioManager().openAudioConnection(voiceChannel);
+
+    // Configurar desconexión por inactividad
+    musicManager.setDisconnectAction(() -> {
+      guild.getAudioManager().closeAudioConnection();
+      log.info("⏰ Bot desconectado por inactividad en guild {}", guildId);
+    });
 
     if (textChannel != null) {
       musicManager.scheduler.setAnnouncementChannel(textChannel);
     }
+
+    Collections.shuffle(tracks);
 
     for (TrackEntity entity : tracks) {
       playerManager.loadItemOrdered(musicManager, entity.getUrl(), new AudioLoadResultHandler() {
@@ -91,7 +106,6 @@ public class MusicService {
           musicManager.scheduler.queue(track);
         }
 
-        // Implementar los otros métodos (vacíos o con logs)
         @Override
         public void playlistLoaded(AudioPlaylist p) {
         }
@@ -111,16 +125,28 @@ public class MusicService {
       Consumer<String> successCallback, Consumer<String> errorCallback) {
 
     Guild guild = jda.getGuildById(guildId);
+
+    AudioChannel voiceChannel;
+
     if (guild == null) {
-      ResponseEntity.badRequest().body("Servidor no encontrado");
-      return;
+      throw new NoGuildChannelException("No se encontró el servidor");
     }
 
-    AudioChannel voiceChannel = (targetVoiceChannel != null) ? targetVoiceChannel : guild.getVoiceChannels().get(0);
+    if (guild.getVoiceChannels().isEmpty()) {
+      throw new NoVoiceChannelException("No hay canales de voz disponibles en este servidor.");
+    }
+
+    voiceChannel = (targetVoiceChannel != null) ? targetVoiceChannel : guild.getVoiceChannels().get(0);
 
     GuildMusicManager musicManager = musicStateService.GetGuildMusicManager(guildId);
     guild.getAudioManager().setSendingHandler(musicManager.getSendHandler());
     guild.getAudioManager().openAudioConnection(voiceChannel);
+
+    // Configurar desconexión por inactividad
+    musicManager.setDisconnectAction(() -> {
+      guild.getAudioManager().closeAudioConnection();
+      log.info("⏰ Bot desconectado por inactividad en guild {}", guildId);
+    });
 
     if (textChannel != null) {
       musicManager.scheduler.setAnnouncementChannel(textChannel);
@@ -138,25 +164,40 @@ public class MusicService {
       @Override
       public void playlistLoaded(AudioPlaylist playlist) {
         AudioTrack selectedTrack = playlist.getSelectedTrack();
+        List<AudioTrack> allTracks = playlist.getTracks();
 
-        // 1. Definimos el límite (luego este número vendrá desde Angular)
-        int limiteMaximo = 15;
+        // Si es ytsearch (sin track seleccionado), tomamos el primero
+        if (selectedTrack == null && !allTracks.isEmpty()) {
+          selectedTrack = allTracks.get(0);
+        }
 
-        if (selectedTrack != null) {
+        // Variable final para usar en lambdas
+        final AudioTrack finalSelectedTrack = selectedTrack;
+
+        // Detectar si es búsqueda por nombre (ytsearch:)
+        boolean isSearch = trackUrl.startsWith("ytsearch:");
+        int limiteMaximo = isSearch ? 1 : 15;
+
+        if (finalSelectedTrack != null) {
           if (successCallback != null) {
-            successCallback.accept("✨ Mix detectado. Cargando las primeras " + limiteMaximo + " canciones...");
+            if (isSearch) {
+              successCallback.accept("✅ Añadido a la cola: **" + finalSelectedTrack.getInfo().title + "**");
+            } else {
+              successCallback.accept("✨ Mix detectado. Cargando las primeras " + limiteMaximo + " canciones...");
+            }
           }
-          musicManager.scheduler.queue(selectedTrack);
+          musicManager.scheduler.queue(finalSelectedTrack);
         } else {
           if (successCallback != null) {
-            successCallback.accept("🎶 Añadiendo playlist: **" + playlist.getName() + "**");
+            successCallback.accept("❌ No se encontraron resultados.");
           }
+          return;
         }
 
         // 2. Filtramos y limitamos la lista usando Streams
-        List<AudioTrack> tracksToLoad = playlist.getTracks().stream()
-            .filter(track -> !track.equals(selectedTrack)) // Evitamos duplicar la seleccionada
-            .limit(selectedTrack != null ? limiteMaximo - 1 : limiteMaximo) // Ajustamos el límite
+        List<AudioTrack> tracksToLoad = allTracks.stream()
+            .filter(track -> !track.equals(finalSelectedTrack)) // Evitamos duplicar la seleccionada
+            .limit(isSearch ? 0 : limiteMaximo - 1) // Si es búsqueda, solo 1 canción
             .toList();
 
         // 3. Hilo separado con "Sleep" para no saturar el ancho de banda
@@ -171,7 +212,7 @@ public class MusicService {
               break;
             }
           }
-          System.out.println("✅ Carga de Mix/Playlist finalizada con éxito.");
+          log.info("✅ Carga de Mix/Playlist finalizada con éxito.");
         }).start();
       }
 
@@ -249,6 +290,39 @@ public class MusicService {
     if (currentTrack != null) {
       String identifier = currentTrack.getInfo().identifier;
       trackRepository.deleteByIdentifierAndGuildId(identifier, guildId);
+      return true;
+    }
+    return false;
+  }
+
+  public List<AudioTrack> getQueueListTrack(Long guildId) {
+    GuildMusicManager musicManager = musicStateService.GetGuildMusicManager(guildId);
+    if (musicManager != null) {
+      return musicManager.scheduler.getQueueList();
+    } else {
+      return new ArrayList<>();
+    }
+  }
+
+  public int getVolume(Long guildId) {
+    GuildMusicManager musicManager = musicStateService.GetGuildMusicManager(guildId);
+    if (musicManager != null) {
+      return musicManager.player.getVolume();
+    }
+    return 100;
+  }
+
+  public void setVolume(Long guildId, int volume) {
+    GuildMusicManager musicManager = musicStateService.GetGuildMusicManager(guildId);
+    if (musicManager != null) {
+      musicManager.player.setVolume(volume);
+    }
+  }
+
+  public boolean shuffleQueue(Long guildId) {
+    GuildMusicManager musicManager = musicStateService.GetGuildMusicManager(guildId);
+    if (musicManager != null && !musicManager.scheduler.getQueueList().isEmpty()) {
+      musicManager.scheduler.shuffleQueue();
       return true;
     }
     return false;

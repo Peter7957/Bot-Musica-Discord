@@ -29,4 +29,11 @@ public class MusicStateService {
         id -> new GuildMusicManager(audioPlayerManager, musicService, guildId));
   }
 
+  public void removeGuildMusicManager(Long guildId) {
+    GuildMusicManager manager = musicManagers.remove(guildId);
+    if (manager != null) {
+      manager.shutdown();
+    }
+  }
+
 }
