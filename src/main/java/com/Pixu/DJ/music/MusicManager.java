@@ -1,5 +1,6 @@
 package com.Pixu.DJ.music;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -12,6 +13,8 @@ import dev.lavalink.youtube.YoutubeAudioSourceManager;
 
 @Configuration
 public class MusicManager {
+  @Value("${youtube.refresh-token}")
+  private String youtubeRefreshToken;
 
   @Bean
   public AudioPlayerManager audioPlayerManager(MusicService musicService) {
@@ -27,6 +30,8 @@ public class MusicManager {
         .setResamplingQuality(com.sedmelluq.discord.lavaplayer.player.AudioConfiguration.ResamplingQuality.HIGH);
 
     YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager();
+
+    youtube.useOauth2(youtubeRefreshToken, true);
 
     playerManager.registerSourceManager(youtube);
 

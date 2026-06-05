@@ -1,5 +1,8 @@
 package com.Pixu.DJ.music;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -10,8 +13,10 @@ import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason;
 
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 
+@Slf4j
 @Getter
 public class TrackScheduler extends AudioEventAdapter {
 
@@ -22,12 +27,14 @@ public class TrackScheduler extends AudioEventAdapter {
   private final Long guildId;
 
   private final MusicService musicService;
+  private final GuildMusicManager guildMusicManager;
 
-  public TrackScheduler(AudioPlayer player, MusicService musicService, Long guildId) {
+  public TrackScheduler(AudioPlayer player, MusicService musicService, Long guildId, GuildMusicManager guildMusicManager) {
     this.player = player;
     this.guildId = guildId;
     this.queue = new LinkedBlockingQueue<>();
     this.musicService = musicService;
+    this.guildMusicManager = guildMusicManager;
   }
 
   public void setAnnouncementChannel(MessageChannel channel) {
@@ -37,13 +44,16 @@ public class TrackScheduler extends AudioEventAdapter {
   @Override
   public void onTrackStart(AudioPlayer player, AudioTrack track) {
     if (player != null && track != null) {
+      if (guildMusicManager != null) {
+        guildMusicManager.resetInactivityTimer();
+      }
       musicService.saveOnHistory(track, this.guildId);
 
       if (announcementChannel != null) {
         announcementChannel.sendMessage("🎶 Reproduciendo ahora: **" + track.getInfo().title + "**").queue();
       }
 
-      System.out.println("💾 [TrackStart] Procesada con éxito: " + track.getInfo().title);
+      log.info("[TrackStart] Reproduciendo: {}", track.getInfo().title);
     }
   }
 
@@ -58,7 +68,15 @@ public class TrackScheduler extends AudioEventAdapter {
     if (current != null) {
       this.lastTrack = current.makeClone();
     }
-    player.startTrack(queue.poll(), false);
+    AudioTrack next = queue.poll();
+    if (next == null) {
+      player.stopTrack();
+      if (guildMusicManager != null) {
+        guildMusicManager.startInactivityTimer();
+      }
+    } else {
+      player.startTrack(next, false);
+    }
   }
 
   public void previousTrack() {
@@ -95,6 +113,11 @@ public class TrackScheduler extends AudioEventAdapter {
     if (endReason.mayStartNext) {
       this.lastTrack = track.makeClone();
       nextTrack();
+    } else {
+      // No hay más música o fue detenido
+      if (guildMusicManager != null) {
+        guildMusicManager.startInactivityTimer();
+      }
     }
   }
 
@@ -108,6 +131,25 @@ public class TrackScheduler extends AudioEventAdapter {
         nextTrack(); // Si se pasa del final, pasa a la siguiente pista
       }
     }
+  }
+
+  public List<AudioTrack> getQueueList() {
+    return new ArrayList<>(queue);
+  }
+
+  public int getVolume() {
+    return player.getVolume();
+  }
+
+  public void setVolume(int volume) {
+    player.setVolume(volume);
+  }
+
+  public void shuffleQueue() {
+    List<AudioTrack> tracks = new ArrayList<>(queue);
+    Collections.shuffle(tracks);
+    queue.clear();
+    queue.addAll(tracks);
   }
 
 }

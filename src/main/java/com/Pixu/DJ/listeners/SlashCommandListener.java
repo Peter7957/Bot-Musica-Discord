@@ -1,7 +1,11 @@
 package com.Pixu.DJ.listeners;
 
+import java.util.List;
+
 import org.springframework.stereotype.Component;
 
+import com.Pixu.DJ.exception.NoGuildChannelException;
+import com.Pixu.DJ.exception.NoVoiceChannelException;
 import com.Pixu.DJ.service.MusicService;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 
@@ -9,6 +13,7 @@ import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 
 @Component
 public class SlashCommandListener extends ListenerAdapter {
@@ -84,28 +89,39 @@ public class SlashCommandListener extends ListenerAdapter {
     }
 
     if (event.getName().equals("mix")) {
+      event.deferReply().queue(); // Acepta el comando y da más tiempo para procesar
 
-      String mixName = "History";
+      try {
+        String mixName = "History";
 
-      AudioChannel voiceChannel = event.getMember().getVoiceState().getChannel();
-      MessageChannel textChannel = event.getChannel();
+        AudioChannel voiceChannel = event.getMember().getVoiceState().getChannel();
+        MessageChannel textChannel = event.getChannel();
 
-      // 2. Validación rápida
-      if (voiceChannel == null) {
-        event.reply("❌ ¡Debes estar en un canal de voz!").setEphemeral(true).queue();
-        return;
+        // 2. Validación rápida
+        if (voiceChannel == null) {
+          event.getHook().sendMessage("❌ ¡Debes estar en un canal de voz!").setEphemeral(true).queue();
+          return;
+        }
+
+        // LLAMADA AL SERVICE: El Service hace la magia de H2 -> Player
+        musicService.getMixTracks(mixName, guildId, voiceChannel, textChannel);
+
+        event.getHook().sendMessage("📂 Cargando tu mix personalizado: **" + mixName + "**").queue();
+      } catch (NoVoiceChannelException e) {
+        event.getHook().sendMessage("❌ No hay canales de voz disponibles en este servidor.").setEphemeral(true).queue();
+      } catch (NoGuildChannelException e) {
+        event.getHook().sendMessage("❌ No se pudo encontrar el canal de texto o voz especificado.").setEphemeral(true)
+            .queue();
+      } catch (Exception e) {
+        event.getHook().sendMessage("❌ Ocurrió un error al procesar tu solicitud.").setEphemeral(true).queue();
       }
-
-      // LLAMADA AL SERVICE: El Service hace la magia de H2 -> Player
-      musicService.getMixTracks(mixName, guildId, voiceChannel, textChannel);
-
-      event.reply("📂 Cargando tu mix personalizado: **" + mixName + "**").queue();
     }
 
     if (event.getName().equals("borrar")) {
       boolean isDeleted = musicService.deleteMix(guildId);
       if (!isDeleted) {
         event.reply("❌ No hay una canción sonando para borrar.").queue();
+        return;
       }
       event.reply("🗑️ Canción actual eliminada de la base de datos.").queue();
     }
@@ -122,23 +138,95 @@ public class SlashCommandListener extends ListenerAdapter {
     }
 
     if (event.getName().equals("play")) {
-      String trackUrl = event.getOption("url").getAsString();
-      AudioChannel voiceChannel = event.getMember().getVoiceState().getChannel();
-      MessageChannel textChannel = event.getChannel();
+      event.deferReply().queue(); // Acepta el comando y da más tiempo para procesar
 
-      // Validación rápida
-      if (voiceChannel == null) {
-        event.reply("❌ ¡Debes estar en un canal de voz!").setEphemeral(true).queue();
+      try {
+
+        OptionMapping option = event.getOption("cancion");
+        if (option == null) {
+          event.getHook().sendMessage("❌ Debes proporcionar una URL o nombre de canción.").setEphemeral(true).queue();
+          return;
+        }
+        String input = option.getAsString();
+        String trackUrl = input.startsWith("http") ? input : "ytsearch: " + input;
+        AudioChannel voiceChannel = event.getMember().getVoiceState().getChannel();
+        MessageChannel textChannel = event.getChannel();
+
+        // Validación rápida
+        if (voiceChannel == null) {
+          event.getHook().sendMessage("❌ ¡Debes estar en un canal de voz!").setEphemeral(true).queue();
+          return;
+        }
+
+        musicService.playFromWeb(trackUrl, guildId, voiceChannel, textChannel,
+            (successCallback) -> {
+              event.getHook().sendMessage(successCallback).queue();
+            },
+            (errorCallback) -> {
+              event.getHook().sendMessage(errorCallback).setEphemeral(true).queue();
+            });
+
+      } catch (NoVoiceChannelException e) {
+        event.getHook().sendMessage("❌ No hay canales de voz disponibles en este servidor.").setEphemeral(true).queue();
+      } catch (NoGuildChannelException e) {
+        event.getHook().sendMessage("❌ No se pudo encontrar el canal de texto o voz especificado.").setEphemeral(true)
+            .queue();
+      } catch (Exception e) {
+        e.printStackTrace();
+        event.getHook().sendMessage("❌ Error: " + e.getClass().getSimpleName() + " - " + e.getMessage())
+            .setEphemeral(true).queue();
+      }
+    }
+
+    if (event.getName().equals("queue")) {
+      List<AudioTrack> queue = musicService.getQueueListTrack(guildId);
+      AudioTrack currentTrack = musicService.getCurrentTrack(guildId);
+
+      if (currentTrack == null && queue.isEmpty()) {
+        event.reply("La cola está vacía.").setEphemeral(true).queue();
+      } else {
+        StringBuilder message = new StringBuilder();
+        if (currentTrack != null) {
+          message.append("🎶 **Reproduciendo ahora:** ").append(currentTrack.getInfo().title).append("\n\n");
+        }
+
+        if (!queue.isEmpty()) {
+          message.append("📋 **Próximas en la cola:**\n");
+          for (AudioTrack track : queue) {
+            message.append("- ").append(track.getInfo().title).append("\n");
+          }
+        }
+
+        event.reply(message.toString()).setEphemeral(true).queue();
+      }
+    }
+
+    if (event.getName().equals("volume")) {
+      OptionMapping VolumeOption = event.getOption("nivel");
+
+      if (VolumeOption != null) {
+        int nivel = VolumeOption.getAsInt();
+
+        if (nivel < 0 || nivel > 100) {
+          event.reply("❌ El nivel de volumen debe estar entre 0 y 100.").setEphemeral(true).queue();
+          return;
+        }
+
+        musicService.setVolume(guildId, nivel);
+        event.reply("🔊 Volumen ajustado a: " + nivel + "%").queue();
+      } else {
+        int currentVolume = musicService.getVolume(guildId);
+        event.reply("🔊 Volumen actual: " + currentVolume + "%").queue();
+      }
+    }
+
+    if (event.getName().equals("shuffle")) {
+      boolean isShuffled = musicService.shuffleQueue(guildId);
+      if (!isShuffled) {
+        event.reply("❌ No hay suficientes canciones en la cola para mezclar.").queue();
         return;
       }
-
-      musicService.playFromWeb(trackUrl, guildId, voiceChannel, textChannel,
-          (successCallback) -> {
-            event.reply(successCallback).queue();
-          },
-          (errorCallback) -> {
-            event.reply(errorCallback).setEphemeral(true).queue();
-          });
+      event.reply("🔀 Cola mezclada.").queue();
     }
   }
 }

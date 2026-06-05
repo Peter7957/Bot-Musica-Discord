@@ -1,0 +1,43 @@
+services:
+  app:
+    build: .
+    container_name: dj-bot
+    restart: unless-stopped
+    environment:
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - DISCORD_GUILD_ID=${DISCORD_GUILD_ID}
+      - DISCORD_GUILD_ID_TEST=${DISCORD_GUILD_ID_TEST}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/djbot
+      - DB_USER=${DB_USER:-djbot}
+      - DB_PASSWORD=${DB_PASSWORD:-djbotpass}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - dj-network
+
+  db:
+    image: postgres:16-alpine
+    container_name: dj-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=djbot
+      - POSTGRES_USER=${DB_USER:-djbot}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-djbotpass}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - dj-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-djbot} -d djbot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  postgres_data:
+
+networks:
+  dj-network:
+    driver: bridge
