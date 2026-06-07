@@ -1,8 +1,30 @@
 services:
+  gluetun:
+    image: qmcgaw/gluetun
+    container_name: dj-vpn
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      - VPN_SERVICE_PROVIDER=protonvpn
+      - VPN_TYPE=openvpn
+      - OPENVPN_USER=${PROTONVPN_USER}
+      - OPENVPN_PASSWORD=${PROTONVPN_PASSWORD}
+      - SERVER_COUNTRIES=United States
+    networks:
+      - dj-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "https://ipinfo.io/ip"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   app:
     build: .
     container_name: dj-bot
     restart: unless-stopped
+    network_mode: "service:gluetun"
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
       - DISCORD_GUILD_ID=${DISCORD_GUILD_ID}
@@ -11,10 +33,10 @@ services:
       - DB_USER=${DB_USER:-djbot}
       - DB_PASSWORD=${DB_PASSWORD:-djbotpass}
     depends_on:
+      gluetun:
+        condition: service_healthy
       db:
         condition: service_healthy
-    networks:
-      - dj-network
 
   db:
     image: postgres:16-alpine
