@@ -12,6 +12,7 @@ import com.sedmelluq.discord.lavaplayer.source.AudioSourceManagers;
 import dev.lavalink.youtube.YoutubeAudioSourceManager;
 import dev.lavalink.youtube.clients.AndroidVr;
 import dev.lavalink.youtube.clients.Music;
+import dev.lavalink.youtube.clients.Tv;
 import dev.lavalink.youtube.clients.TvHtml5Simply;
 import dev.lavalink.youtube.clients.Web;
 import dev.lavalink.youtube.clients.WebEmbedded;
@@ -37,6 +38,7 @@ public class MusicManager {
 
     YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager(
         true, // allowSearch
+        new Tv(), // Cliente con OAuth (requiere login)
         new Music(),
         new AndroidVr(),
         new Web(),
