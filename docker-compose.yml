@@ -12,8 +12,8 @@ services:
       - OPENVPN_USER=${PROTONVPN_USER}
       - OPENVPN_PASSWORD=${PROTONVPN_PASSWORD}
       - SERVER_COUNTRIES=United States
-    networks:
-      - dj-network
+    ports:
+      - "8080:8080/tcp"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "https://ipinfo.io/ip"]
       interval: 30s
@@ -29,27 +29,25 @@ services:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
       - DISCORD_GUILD_ID=${DISCORD_GUILD_ID}
       - DISCORD_GUILD_ID_TEST=${DISCORD_GUILD_ID_TEST}
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/djbot
+      - YOUTUBE_REFRESH_TOKEN=${YOUTUBE_REFRESH_TOKEN}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/djbot
       - DB_USER=${DB_USER:-djbot}
       - DB_PASSWORD=${DB_PASSWORD:-djbotpass}
     depends_on:
-      gluetun:
-        condition: service_healthy
-      db:
-        condition: service_healthy
+      - gluetun
+      - db
 
   db:
     image: postgres:16-alpine
     container_name: dj-postgres
     restart: unless-stopped
+    network_mode: "service:gluetun"
     environment:
       - POSTGRES_DB=djbot
       - POSTGRES_USER=${DB_USER:-djbot}
       - POSTGRES_PASSWORD=${DB_PASSWORD:-djbotpass}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - dj-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-djbot} -d djbot"]
       interval: 5s
@@ -59,7 +57,3 @@ services:
 
 volumes:
   postgres_data:
-
-networks:
-  dj-network:
-    driver: bridge
