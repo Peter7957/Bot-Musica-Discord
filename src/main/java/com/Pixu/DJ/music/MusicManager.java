@@ -10,6 +10,11 @@ import com.sedmelluq.discord.lavaplayer.player.DefaultAudioPlayerManager;
 import com.sedmelluq.discord.lavaplayer.source.AudioSourceManagers;
 
 import dev.lavalink.youtube.YoutubeAudioSourceManager;
+import dev.lavalink.youtube.clients.AndroidVr;
+import dev.lavalink.youtube.clients.Music;
+import dev.lavalink.youtube.clients.TvHtml5Simply;
+import dev.lavalink.youtube.clients.Web;
+import dev.lavalink.youtube.clients.WebEmbedded;
 
 @Configuration
 public class MusicManager {
@@ -19,6 +24,7 @@ public class MusicManager {
   @Bean
   public AudioPlayerManager audioPlayerManager(MusicService musicService) {
 
+    // AudioPlayerManager playerManager = new DefaultAudioPlayerManager();
     AudioPlayerManager playerManager = new DefaultAudioPlayerManager();
 
     // 1. Aumenta el búfer: Prepara 1 segundo de audio en lugar de los 100ms por
@@ -29,9 +35,15 @@ public class MusicManager {
     playerManager.getConfiguration()
         .setResamplingQuality(com.sedmelluq.discord.lavaplayer.player.AudioConfiguration.ResamplingQuality.HIGH);
 
-    YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager();
+    YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager(
+        true, // allowSearch
+        new Music(),
+        new AndroidVr(),
+        new Web(),
+        new WebEmbedded(),
+        new TvHtml5Simply());
 
-    youtube.useOauth2(youtubeRefreshToken, true);
+    youtube.useOauth2(youtubeRefreshToken, false);
 
     playerManager.registerSourceManager(youtube);
 
