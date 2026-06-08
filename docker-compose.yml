@@ -7,11 +7,14 @@ services:
     devices:
       - /dev/net/tun:/dev/net/tun
     environment:
-      - VPN_SERVICE_PROVIDER=protonvpn
+      - VPN_SERVICE_PROVIDER=custom
       - VPN_TYPE=openvpn
-      - OPENVPN_USER=${PROTONVPN_USER}
-      - OPENVPN_PASSWORD=${PROTONVPN_PASSWORD}
-      - SERVER_COUNTRIES=United States
+      - OPENVPN_USER=vpnbook
+      - OPENVPN_PASSWORD=${VPNBOOK_PASSWORD:-8zw5j9h}
+      - VPN_ENDPOINT_IP=198.7.62.204
+      - VPN_ENDPOINT_PORT=443
+    volumes:
+      - ./vpnbook.ovpn:/gluetun/openvpn/client.conf:ro
     ports:
       - "8080:8080/tcp"
     healthcheck:
@@ -19,6 +22,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 20s
 
   app:
     build: .
