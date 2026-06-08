@@ -13,6 +13,8 @@ services:
       - OPENVPN_PASSWORD=${VPNBOOK_PASSWORD:-8zw5j9h}
       - VPN_ENDPOINT_IP=198.7.62.204
       - VPN_ENDPOINT_PORT=443
+      - DOT=off
+      - DNS_ADDRESS=1.1.1.1,8.8.8.8
     volumes:
       - ./vpnbook.ovpn:/gluetun/openvpn/client.conf:ro
     ports:
